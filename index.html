@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>NVCF Чат</title>
+<style>
+:root{
+  --bg:#0e1116;
+  --panel:#141922;
+  --panel-2:#0f141c;
+  --text:#eef2f6;
+  --muted:#9aa7b2;
+  --accent:#2dd4bf;
+  --accent-2:#60a5fa;
+  --danger:#ff6b6b;
+  --warn:#ffb454;
+  --ok:#4cd97b;
+  --bubble-user:#1e2b3d;
+  --bubble-assistant:#171f2b;
+  --bubble-system:#24171a;
+  --border:#1f2a38;
+  --shadow:0 10px 30px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box;}
+html,body{height:100%;}
+body{
+  margin:0;
+  font-family:"Fira Sans","Trebuchet MS","Verdana",sans-serif;
+  background:
+    radial-gradient(900px 600px at 10% -10%, #1a2734 0%, #0e1116 55%),
+    radial-gradient(900px 600px at 110% 10%, #1b1f2c 0%, #0e1116 60%),
+    var(--bg);
+  color:var(--text);
+}
+button,input,textarea,select{font:inherit;color:inherit;}
+button{cursor:pointer;}
+
+.app{height:100%;display:flex;flex-direction:column;}
+
+.topbar{
+  position:fixed;top:0;left:0;right:0;height:56px;
+  display:flex;align-items:center;gap:10px;justify-content:space-between;
+  background:linear-gradient(180deg, rgba(20,25,34,.98), rgba(20,25,34,.88));
+  backdrop-filter: blur(6px);
+  border-bottom:1px solid var(--border);
+  z-index:20;padding:0 12px;
+}
+.topbar .left{display:flex;align-items:center;gap:8px;min-width:0;}
+.topbar h1{font-size:15px;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60vw;}
+.topbar .icon-btn{
+  background:transparent;border:1px solid transparent;
+  padding:10px;border-radius:12px;min-width:44px;min-height:44px;
+}
+.topbar .icon-btn:focus-visible{outline:2px solid var(--accent);}
+
+.drawer{
+  position:fixed;top:56px;bottom:0;left:0;width:280px;
+  background:var(--panel);border-right:1px solid var(--border);
+  transform:translateX(-100%);
+  transition:transform .25s ease;z-index:15;
+  padding:12px;display:flex;flex-direction:column;gap:10px;
+}
+.drawer.open{transform:translateX(0);}
+.drawer .new-chat{
+  background:var(--accent);color:#071018;border:none;
+  padding:12px 14px;border-radius:12px;font-weight:700;min-height:44px;
+}
+.chat-list{overflow:auto;display:flex;flex-direction:column;gap:8px;padding-bottom:12px;}
+.chat-item{
+  border:1px solid var(--border);background:var(--panel-2);
+  border-radius:14px;padding:10px;display:flex;flex-direction:column;gap:8px;
+}
+.chat-item.active{border-color:var(--accent);} 
+.chat-item .meta{display:flex;justify-content:space-between;align-items:center;gap:8px;}
+.chat-item .name{font-weight:700;font-size:14px;}
+.chat-item .count{font-size:12px;color:var(--muted);} 
+.chat-item .actions{display:flex;gap:6px;}
+.chat-item .actions button{
+  background:transparent;border:1px solid var(--border);color:var(--muted);
+  padding:6px 8px;border-radius:8px;font-size:12px;min-height:32px;
+}
+.chat-item .actions button:hover{color:var(--text);} 
+
+.main{padding-top:56px;flex:1;display:flex;flex-direction:column;}
+
+.messages{
+  flex:1;overflow:auto;padding:12px 12px 130px;
+  display:flex;flex-direction:column;gap:12px;scroll-behavior:smooth;
+}
+
+.msg{
+  max-width:88%;padding:10px 12px;border-radius:16px;border:1px solid var(--border);
+  box-shadow:var(--shadow);white-space:pre-wrap;word-break:break-word;
+}
+.msg.user{align-self:flex-end;background:var(--bubble-user);} 
+.msg.assistant{align-self:flex-start;background:var(--bubble-assistant);} 
+.msg.system{align-self:center;background:var(--bubble-system);border-color:#3b1e22;max-width:92%;}
+.msg .time{display:block;font-size:11px;color:var(--muted);margin-top:6px;text-align:right;}
+.msg .media{display:flex;flex-direction:column;gap:8px;margin-top:8px;}
+.msg img{max-width:100%;border-radius:12px;border:1px solid var(--border);} 
+.msg audio{width:100%;}
+
+.typing{
+  align-self:flex-start;display:flex;gap:6px;align-items:center;
+  background:var(--bubble-assistant);border:1px solid var(--border);
+  border-radius:14px;padding:8px 10px;width:60px;
+}
+.typing span{width:6px;height:6px;border-radius:50%;background:#7f8b99;animation:blink 1.2s infinite;}
+.typing span:nth-child(2){animation-delay:.2s;}
+.typing span:nth-child(3){animation-delay:.4s;}
+@keyframes blink{0%,80%,100%{opacity:.2;}40%{opacity:1;}}
+
+.composer{
+  position:fixed;bottom:0;left:0;right:0;
+  background:rgba(20,25,34,.95);backdrop-filter: blur(6px);
+  border-top:1px solid var(--border);padding:10px;display:flex;flex-direction:column;gap:8px;
+}
+.composer .row{display:flex;gap:8px;align-items:flex-end;}
+.composer textarea{
+  flex:1;min-height:48px;max-height:160px;resize:vertical;
+  padding:12px 12px;border-radius:14px;border:1px solid var(--border);
+  background:#0f141c;
+}
+.composer button{
+  border:none;padding:12px 14px;border-radius:14px;font-weight:700;min-height:44px;
+}
+.composer .send{background:var(--accent);color:#071018;}
+.composer .attach{background:#1b2633;color:var(--text);border:1px solid var(--border);} 
+
+.toggle{
+  display:inline-flex;align-items:center;gap:8px;border:1px solid var(--border);
+  background:#0f141c;padding:6px 10px;border-radius:999px;font-size:12px;color:var(--muted);
+}
+.toggle input{accent-color:var(--accent);} 
+
+.sheet{
+  position:fixed;bottom:110px;right:10px;background:var(--panel);
+  border:1px solid var(--border);border-radius:12px;padding:10px;
+  display:none;flex-direction:column;gap:8px;z-index:30;min-width:220px;
+}
+.sheet.open{display:flex;}
+.sheet button{
+  background:#1b2633;border:1px solid var(--border);padding:10px;border-radius:10px;text-align:left;min-height:44px;
+}
+.sheet .disabled{opacity:.5;cursor:not-allowed;}
+
+.panel{
+  position:fixed;inset:56px 0 auto 0;z-index:18;
+  background:var(--panel);border-bottom:1px solid var(--border);
+  padding:12px;display:none;flex-direction:column;gap:10px;
+}
+.panel.open{display:flex;}
+.panel .row{display:flex;gap:8px;align-items:center;}
+.panel input{
+  flex:1;padding:10px;border-radius:10px;border:1px solid var(--border);background:#0f141c;
+}
+.panel .btn{background:#1b2633;border:1px solid var(--border);padding:8px 10px;border-radius:10px;min-height:40px;}
+.panel .btn.primary{background:var(--accent);color:#071018;border:none;}
+.panel .btn.danger{border-color:var(--danger);color:var(--danger);} 
+.panel .note{font-size:12px;color:var(--muted);} 
+
+.details{border:1px solid var(--border);border-radius:10px;padding:8px;background:#0f141c;}
+.details summary{cursor:pointer;color:var(--muted);} 
+
+.toast{
+  position:fixed;left:50%;transform:translateX(-50%);bottom:140px;z-index:60;
+  background:#14202b;border:1px solid var(--border);color:var(--text);
+  padding:8px 12px;border-radius:999px;display:none;
+}
+.toast.show{display:block;}
+
+.debug pre{max-height:180px;overflow:auto;background:#0b0f14;padding:8px;border-radius:8px;border:1px solid var(--border);} 
+
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;z-index:12;}
+.overlay.show{display:block;}
+
+@media (min-width:900px){
+  .drawer{transform:translateX(0);} 
+  .overlay{display:none !important;}
+  .main{margin-left:280px;}
+  .composer{left:280px;}
+  .panel{left:280px;}
+  .topbar .icon-btn.menu{display:none;}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="left">
+      <button class="icon-btn menu" id="btnMenu" aria-label="Відкрити список чатів">☰</button>
+      <h1 id="activeChatTitle">Чат</h1>
+    </div>
+    <button class="icon-btn" id="btnKey">API ключ</button>
+  </div>
+
+  <div class="drawer" id="drawer" aria-label="Список чатів">
+    <button class="new-chat" id="btnNewChat">+ Новий чат</button>
+    <div class="chat-list" id="chatList"></div>
+  </div>
+  <div class="overlay" id="overlay"></div>
+
+  <div class="panel" id="keyPanel">
+    <div class="row">
+      <input id="apiKey" type="password" placeholder="Встав API ключ NVIDIA (nvapi-...)" />
+      <button class="btn" id="toggleKey">Показати</button>
+    </div>
+    <div class="row">
+      <button class="btn primary" id="btnTest">Перевірити з’єднання</button>
+      <button class="btn danger" id="btnClearKey">Очистити ключ</button>
+    </div>
+    <div class="note">Ключ зберігається лише в цьому браузері (localStorage). Вбудовувати ключ у фронтенд небезпечно.</div>
+    <details class="details debug">
+      <summary>Дебаг</summary>
+      <pre id="debugLog">Порожньо</pre>
+    </details>
+  </div>
+
+  <main class="main">
+    <div class="messages" id="messages" aria-live="polite"></div>
+  </main>
+
+  <div class="composer">
+    <div class="row">
+      <button class="attach" id="btnAttach" aria-label="Додати вкладення">+</button>
+      <textarea id="input" rows="1" placeholder="Введи повідомлення…"></textarea>
+      <button class="send" id="btnSend">Надіслати</button>
+    </div>
+    <label class="toggle">
+      <input type="checkbox" id="codeMode" />
+      <span>Режим: Код</span>
+    </label>
+    <div class="row">
+      <button class="btn" id="btnExport">Експорт чатів</button>
+      <button class="btn" id="btnImport">Імпорт чатів</button>
+    </div>
+  </div>
+
+  <div class="sheet" id="attachSheet">
+    <button id="btnPhoto">Фото (аналіз)</button>
+    <button id="btnAudio">Аудіо (транскрипція)</button>
+    <button id="btnImageGen">Згенерувати зображення</button>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <input type="file" id="imageInput" accept="image/*" hidden />
+  <input type="file" id="audioInput" accept="audio/*" hidden />
+</div>
+
+<script>
+const $ = (id)=>document.getElementById(id);
+const LS_KEY = "nvcf_multichat_v3";
+
+const NVCF = {
+  base: "https://api.nvcf.nvidia.com/v2/nvcf/pexec/functions",
+  chat: {
+    functionId: "74a4aefd-9833-4bf5-ace9-e9e4c3461213",
+    versionId: "d4729801-fa55-45fe-85a9-f1e16fbf4f7f",
+    model: "qwen/qwen2-7b-instruct"
+  },
+  code: {
+    primary: {
+      functionId: "f3160eb9-d42a-46a6-b7da-aad54d4b2134",
+      versionId: "62d7ff3d-2c86-4989-9309-6977e0ea157d",
+      model: "ai-qwen2_5-coder-32b-instruct"
+    },
+    fallback: {
+      functionId: "49da1c56-3d87-4d40-977a-db4067db681f",
+      versionId: "4540d2c8-4c61-49c2-a5b8-c97703458364",
+      model: "ai-qwen2_5-coder-7b-instruct"
+    }
+  },
+  vision: {
+    functionId: "24e0c62b-f7d0-44ba-8012-012c2a1aaf31",
+    versionId: "40645487-578f-4e09-a218-bfd7ec8cb998",
+    model: "ai-llama-3_2-90b-vision-instruct"
+  },
+  asr: {
+    functionId: "b702f636-f60c-4a3d-a6f4-f3568c13bd7d",
+    versionId: "02618006-36dd-43a6-a525-03e3cdbda3e6",
+    model: "ai-whisper-large-v3"
+  },
+  image: {
+    functionId: "0c474133-6fd2-42f6-be29-8ebbbaeaaeb2",
+    versionId: "7160cec7-c61f-433c-962a-c30693f6f033",
+    model: "ai-flux_1-dev"
+  }
+};
+
+const state = {
+  chats: [],
+  activeId: null,
+  typing: false,
+  apiKey: "",
+  codeMode: false
+};
+
+function save(){
+  const safe = JSON.parse(JSON.stringify(state));
+  localStorage.setItem(LS_KEY, JSON.stringify(safe));
+}
+function load(){
+  const raw = localStorage.getItem(LS_KEY);
+  if(!raw) return;
+  try{
+    const data = JSON.parse(raw);
+    if(Array.isArray(data.chats)) state.chats = data.chats;
+    state.activeId = data.activeId || (state.chats[0]?.id || null);
+    state.apiKey = data.apiKey || "";
+    state.codeMode = !!data.codeMode;
+  }catch(e){}
+}
+
+function newChat(name="Новий чат"){
+  const id = "c_"+Date.now()+"_"+Math.random().toString(36).slice(2,6);
+  const chat = {id,name,created:Date.now(),messages:[]};
+  state.chats.unshift(chat);
+  state.activeId = id;
+  save();
+  renderChats();
+  renderMessages();
+}
+
+function getActive(){return state.chats.find(c=>c.id===state.activeId);} 
+
+function renderChats(){
+  const list = $("chatList");
+  list.innerHTML = "";
+  state.chats.forEach(chat=>{
+    const div = document.createElement("div");
+    div.className = "chat-item" + (chat.id===state.activeId?" active":"");
+    const meta = document.createElement("div");
+    meta.className = "meta";
+    const name = document.createElement("div");
+    name.className = "name";
+    name.textContent = chat.name;
+    const count = document.createElement("div");
+    count.className = "count";
+    count.textContent = `${chat.messages.length} повідомл.`;
+    meta.append(name,count);
+    const actions = document.createElement("div");
+    actions.className = "actions";
+    const btnRename = document.createElement("button");
+    btnRename.textContent = "Перейменувати";
+    btnRename.onclick = ()=>{
+      const n = prompt("Нове ім’я чату", chat.name);
+      if(n){chat.name=n;save();renderChats();updateTitle();}
+    };
+    const btnDel = document.createElement("button");
+    btnDel.textContent = "Видалити";
+    btnDel.onclick = ()=>{
+      if(confirm("Видалити цей чат?")){
+        state.chats = state.chats.filter(c=>c.id!==chat.id);
+        if(state.activeId===chat.id) state.activeId = state.chats[0]?.id || null;
+        save();renderChats();renderMessages();updateTitle();
+      }
+    };
+    actions.append(btnRename,btnDel);
+    div.append(meta,actions);
+    div.onclick = (e)=>{
+      if(e.target.tagName==="BUTTON") return;
+      state.activeId = chat.id;save();renderChats();renderMessages();updateTitle();closeDrawer();
+    };
+    list.appendChild(div);
+  });
+}
+
+function updateTitle(){
+  const chat = getActive();
+  $("activeChatTitle").textContent = chat ? chat.name : "Чат";
+}
+
+function formatTime(ts){
+  const d = new Date(ts);
+  return d.toLocaleTimeString("uk-UA",{hour:"2-digit",minute:"2-digit"});
+}
+
+function renderMessages(){
+  const wrap = $("messages");
+  wrap.innerHTML = "";
+  const chat = getActive();
+  if(!chat){
+    const empty = document.createElement("div");
+    empty.className="msg assistant";
+    empty.textContent = "Створи новий чат, щоб почати.";
+    wrap.appendChild(empty);
+    return;
+  }
+  chat.messages.forEach(m=>{
+    const div = document.createElement("div");
+    div.className = "msg "+m.role;
+    div.textContent = m.content || "";
+    if(m.media && m.media.length){
+      const media = document.createElement("div");
+      media.className = "media";
+      m.media.forEach(item=>{
+        if(item.type==="image"){
+          const img = document.createElement("img");
+          img.src = item.url;
+          img.alt = item.name || "Зображення";
+          media.appendChild(img);
+        }
+        if(item.type==="audio"){
+          const audio = document.createElement("audio");
+          audio.controls = true;
+          audio.src = item.url;
+          media.appendChild(audio);
+        }
+      });
+      div.appendChild(media);
+    }
+    const time = document.createElement("span");
+    time.className = "time";
+    time.textContent = formatTime(m.ts || Date.now());
+    div.appendChild(time);
+    wrap.appendChild(div);
+  });
+  if(state.typing){
+    const t = document.createElement("div");
+    t.className = "typing";
+    t.innerHTML = "<span></span><span></span><span></span>";
+    wrap.appendChild(t);
+  }
+  requestAnimationFrame(()=>wrap.scrollTop = wrap.scrollHeight);
+}
+
+function toast(msg){
+  const t = $("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(()=>t.classList.remove("show"), 2400);
+}
+
+function setDebug(info){
+  $("debugLog").textContent = info || "Порожньо";
+}
+
+function openDrawer(){
+  $("drawer").classList.add("open");
+  $("overlay").classList.add("show");
+}
+function closeDrawer(){
+  $("drawer").classList.remove("open");
+  $("overlay").classList.remove("show");
+}
+
+function toggleKeyPanel(){
+  $("keyPanel").classList.toggle("open");
+}
+
+function pushSystemMessage(text){
+  const chat = getActive();
+  if(!chat) return;
+  chat.messages.push({role:"system",content:text,ts:Date.now()});
+  save();
+  renderMessages();
+}
+
+function pushUserMessage(text, media){
+  const chat = getActive();
+  if(!chat) return;
+  chat.messages.push({role:"user",content:text,media:media||[],ts:Date.now()});
+  save();
+  renderMessages();
+}
+
+function pushAssistantMessage(text, media){
+  const chat = getActive();
+  if(!chat) return;
+  chat.messages.push({role:"assistant",content:text,media:media||[],ts:Date.now()});
+  save();
+  renderMessages();
+}
+
+function buildUrl(functionId, versionId){
+  return `${NVCF.base}/${functionId}/versions/${versionId}`;
+}
+
+function safeJsonParse(text){
+  try{ return JSON.parse(text); }catch(e){ return null; }
+}
+
+async function fetchWithTimeout(url, options, timeoutMs){
+  const controller = new AbortController();
+  const timer = setTimeout(()=>controller.abort(), timeoutMs);
+  try{
+    const resp = await fetch(url, {...options, signal: controller.signal});
+    return resp;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function extractAssistantText(data){
+  return data?.choices?.[0]?.message?.content
+    ?? data?.choices?.[0]?.text
+    ?? data?.output_text
+    ?? data?.data?.text
+    ?? null;
+}
+
+function extractErrorFields(data){
+  if(!data) return "";
+  if(data.error) return typeof data.error === "string" ? data.error : JSON.stringify(data.error);
+  if(data.detail) return typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail);
+  if(data.message) return typeof data.message === "string" ? data.message : JSON.stringify(data.message);
+  return "";
+}
+
+function parseAvailableModels(raw){
+  const match = raw.match(/Available models are:\s*\[(.*?)\]/s);
+  if(!match) return [];
+  return match[1].replace(/['\"]+/g, "").split(",").map(s=>s.trim()).filter(Boolean);
+}
+
+async function requestPexec({functionId, versionId, body}){
+  if(!state.apiKey){
+    throw new Error("Вкажи API ключ.");
+  }
+  const url = buildUrl(functionId, versionId);
+  const resp = await fetchWithTimeout(url, {
+    method:"POST",
+    headers:{"Content-Type":"application/json","Authorization":`Bearer ${state.apiKey}`},
+    body: JSON.stringify(body)
+  }, 45000);
+
+  const respText = await resp.text();
+  const data = safeJsonParse(respText);
+  const errFields = extractErrorFields(data);
+  setDebug(`URL: ${url}\nСтатус: ${resp.status}\nПомилка: ${errFields || "-"}\nВідповідь: ${respText.slice(0,800)}`);
+
+  if(!resp.ok){
+    const detail = errFields ? ` ${errFields}` : "";
+    throw new Error(`HTTP ${resp.status}.${detail}`.trim());
+  }
+  return {data, raw: respText};
+}
+
+async function sendChatMessage(text){
+  const chat = getActive();
+  if(!chat) return;
+  pushUserMessage(text);
+  state.typing = true;
+  renderMessages();
+
+  const target = state.codeMode ? "code" : "chat";
+  const cfg = target === "code" ? NVCF.code.primary : NVCF.chat;
+  const messages = chat.messages.filter(m=>m.role!=="system").map(m=>({role:m.role,content:m.content}));
+  const body = {
+    model: cfg.model,
+    messages,
+    temperature: 0.7,
+    max_tokens: 512
+  };
+
+  try{
+    const {data, raw} = await requestPexec({functionId: cfg.functionId, versionId: cfg.versionId, body});
+    let content = extractAssistantText(data);
+    if(!content){
+      const models = parseAvailableModels(raw || "");
+      if(models.length){
+        const retryBody = {...body, model: models[0]};
+        pushSystemMessage(`Модель не зареєстрована. Повторюю запит з моделлю: ${models[0]}`);
+        const retry = await requestPexec({functionId: cfg.functionId, versionId: cfg.versionId, body: retryBody});
+        content = extractAssistantText(retry.data);
+      }
+    }
+    if(!content){
+      throw new Error("Немає поля choices[0].message.content або choices[0].text.");
+    }
+    pushAssistantMessage(content);
+  }catch(err){
+    if(target === "code"){
+      try{
+        const fb = NVCF.code.fallback;
+        const fallbackBody = {
+          model: fb.model,
+          messages,
+          temperature: 0.7,
+          max_tokens: 512
+        };
+        pushSystemMessage("Основна кодова модель недоступна. Перемикаюсь на резервну.");
+        const {data, raw} = await requestPexec({functionId: fb.functionId, versionId: fb.versionId, body: fallbackBody});
+        let content = extractAssistantText(data);
+        if(!content){
+          const models = parseAvailableModels(raw || "");
+          if(models.length){
+            const retryBody = {...fallbackBody, model: models[0]};
+            pushSystemMessage(`Модель не зареєстрована. Повторюю з моделлю: ${models[0]}`);
+            const retry = await requestPexec({functionId: fb.functionId, versionId: fb.versionId, body: retryBody});
+            content = extractAssistantText(retry.data);
+          }
+        }
+        if(!content) throw new Error("Немає текстової відповіді від кодового ендпойнта.");
+        pushAssistantMessage(content);
+      }catch(fbErr){
+        const msg = fbErr.name==="AbortError" ? "Час очікування вичерпано." : (fbErr.message || "Сталася помилка.");
+        pushSystemMessage(`Помилка: ${msg}`);
+      }
+    } else {
+      const msg = err.name==="AbortError" ? "Час очікування вичерпано." : (err.message || "Сталася помилка.");
+      pushSystemMessage(`Помилка: ${msg}`);
+    }
+  }finally{
+    state.typing = false;
+    renderMessages();
+  }
+}
+
+async function handleImage(file){
+  const chat = getActive(); if(!chat) return;
+  const dataUrl = await readAsDataUrl(file);
+  pushUserMessage(`[Фото: ${file.name}]`, [{type:"image",url:dataUrl,name:file.name}]);
+  const confirmSend = confirm("Аналізувати фото?" );
+  if(!confirmSend) return;
+
+  const body = {
+    model: NVCF.vision.model,
+    messages: [{
+      role:"user",
+      content:[
+        {type:"text",text:"Опиши це зображення українською."},
+        {type:"image_url",image_url:{url:dataUrl}}
+      ]
+    }],
+    temperature: 0.7,
+    max_tokens: 512
+  };
+
+  state.typing = true;renderMessages();
+  try{
+    const {data, raw} = await requestPexec({functionId: NVCF.vision.functionId, versionId: NVCF.vision.versionId, body});
+    let content = extractAssistantText(data);
+    if(!content){
+      const models = parseAvailableModels(raw || "");
+      if(models.length){
+        const retryBody = {...body, model: models[0]};
+        pushSystemMessage(`Модель не зареєстрована. Повторюю з моделлю: ${models[0]}`);
+        const retry = await requestPexec({functionId: NVCF.vision.functionId, versionId: NVCF.vision.versionId, body: retryBody});
+        content = extractAssistantText(retry.data);
+      }
+    }
+    if(!content) throw new Error("Немає текстової відповіді від візійного ендпойнта.");
+    pushAssistantMessage(content);
+  }catch(err){
+    pushSystemMessage(`Помилка: ${err.message || "Сталася помилка."}`);
+  }finally{
+    state.typing = false;renderMessages();
+  }
+}
+
+async function handleAudio(file){
+  const chat = getActive(); if(!chat) return;
+  const dataUrl = await readAsDataUrl(file);
+  pushUserMessage(`[Аудіо: ${file.name}]`, [{type:"audio",url:dataUrl,name:file.name}]);
+  const confirmSend = confirm("Транскрибувати аудіо і надіслати в чат?" );
+  if(!confirmSend) return;
+
+  const body = {
+    model: NVCF.asr.model,
+    audio: dataUrl,
+    task: "transcribe",
+    language: "uk"
+  };
+
+  state.typing = true;renderMessages();
+  try{
+    const {data} = await requestPexec({functionId: NVCF.asr.functionId, versionId: NVCF.asr.versionId, body});
+    const transcript = data?.transcript || data?.text || data?.data?.text || extractAssistantText(data);
+    if(!transcript) throw new Error("Не вдалося отримати транскрипт. Можливо, потрібен інший формат запиту.");
+    pushAssistantMessage(`Транскрипт: ${transcript}`);
+    await sendChatMessage(transcript);
+  }catch(err){
+    pushSystemMessage(`Помилка: ${err.message || "Сталася помилка."}`);
+  }finally{
+    state.typing = false;renderMessages();
+  }
+}
+
+async function handleImageGen(){
+  const promptText = $("input").value.trim() || prompt("Введи опис для генерації зображення:");
+  if(!promptText) return;
+  pushUserMessage(`Запит на генерацію зображення: ${promptText}`);
+
+  const body = {model: NVCF.image.model, prompt: promptText, n: 1, size: "1024x1024"};
+  state.typing = true;renderMessages();
+  try{
+    const {data, raw} = await requestPexec({functionId: NVCF.image.functionId, versionId: NVCF.image.versionId, body});
+    let images = data?.data || data?.images || [];
+    if(!Array.isArray(images)) images = [];
+    const media = [];
+    images.forEach((img, i)=>{
+      if(img?.url) media.push({type:"image",url:img.url,name:`image_${i+1}`});
+      if(img?.b64_json) media.push({type:"image",url:`data:image/png;base64,${img.b64_json}`,name:`image_${i+1}`});
+    });
+    if(media.length===0){
+      const single = data?.image || data?.url;
+      if(single) media.push({type:"image",url:single,name:"image_1"});
+    }
+    if(media.length===0){
+      const models = parseAvailableModels(raw || "");
+      if(models.length){
+        const retryBody = {...body, model: models[0]};
+        pushSystemMessage(`Модель не зареєстрована. Повторюю з моделлю: ${models[0]}`);
+        const retry = await requestPexec({functionId: NVCF.image.functionId, versionId: NVCF.image.versionId, body: retryBody});
+        const retryImages = retry.data?.data || retry.data?.images || [];
+        if(Array.isArray(retryImages)){
+          retryImages.forEach((img, i)=>{
+            if(img?.url) media.push({type:"image",url:img.url,name:`image_${i+1}`});
+            if(img?.b64_json) media.push({type:"image",url:`data:image/png;base64,${img.b64_json}`,name:`image_${i+1}`});
+          });
+        }
+      }
+    }
+    if(media.length===0) throw new Error("Не вдалося отримати зображення з відповіді.");
+    pushAssistantMessage("Ось результат генерації:", media);
+  }catch(err){
+    pushSystemMessage(`Помилка: ${err.message || "Сталася помилка."}`);
+  }finally{
+    state.typing = false;renderMessages();
+  }
+}
+
+async function testConnection(){
+  if(!state.apiKey){
+    toast("Спочатку встав API ключ.");
+    return;
+  }
+  try{
+    const body = {model: NVCF.chat.model, messages:[{role:"user",content:"Тест"}], temperature:0.2, max_tokens:8};
+    await requestPexec({functionId: NVCF.chat.functionId, versionId: NVCF.chat.versionId, body});
+    toast("З’єднання успішне.");
+  }catch(err){
+    pushSystemMessage(`Помилка перевірки: ${err.message || "Сталася помилка."}`);
+  }
+}
+
+function exportChats(){
+  const data = {
+    chats: state.chats,
+    activeId: state.activeId,
+    apiKey: "",
+    codeMode: state.codeMode
+  };
+  const blob = new Blob([JSON.stringify(data,null,2)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "nvcf_chats.json";
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function importChats(file){
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      const data = JSON.parse(reader.result);
+      if(Array.isArray(data.chats)){
+        const existing = new Map(state.chats.map(c=>[c.id,c]));
+        data.chats.forEach(c=>{ if(!existing.has(c.id)) state.chats.push(c); });
+      }
+      save();renderChats();renderMessages();updateTitle();
+      toast("Імпортовано.");
+    }catch(e){toast("Не вдалося імпортувати.");}
+  };
+  reader.readAsText(file);
+}
+
+function readAsDataUrl(file){
+  return new Promise((resolve,reject)=>{
+    const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(file);
+  });
+}
+
+// UI bindings
+$("btnMenu").onclick = openDrawer;
+$("overlay").onclick = closeDrawer;
+$("btnKey").onclick = toggleKeyPanel;
+$("btnNewChat").onclick = ()=>newChat();
+
+$("btnSend").onclick = ()=>{
+  const text = $("input").value.trim();
+  if(!text) return;
+  $("input").value = "";
+  sendChatMessage(text);
+};
+
+$("input").addEventListener("keydown", (e)=>{
+  if(e.key==="Enter" && !e.shiftKey){
+    e.preventDefault();
+    $("btnSend").click();
+  }
+});
+
+$("btnAttach").onclick = ()=>$('attachSheet').classList.toggle('open');
+$("btnPhoto").onclick = ()=>$("imageInput").click();
+$("btnAudio").onclick = ()=>$("audioInput").click();
+$("btnImageGen").onclick = handleImageGen;
+
+$("imageInput").onchange = (e)=>{const f=e.target.files[0]; if(f) handleImage(f); e.target.value="";};
+$("audioInput").onchange = (e)=>{const f=e.target.files[0]; if(f) handleAudio(f); e.target.value="";};
+
+$("btnTest").onclick = testConnection;
+$("btnExport").onclick = exportChats;
+$("btnImport").onclick = ()=>{
+  const inp = document.createElement("input");
+  inp.type = "file"; inp.accept = "application/json";
+  inp.onchange = ()=>{ if(inp.files[0]) importChats(inp.files[0]); };
+  inp.click();
+};
+
+$("btnClearKey").onclick = ()=>{
+  state.apiKey = "";
+  save();
+  $("apiKey").value = "";
+  toast("Ключ очищено.");
+};
+
+$("toggleKey").onclick = ()=>{
+  const i = $("apiKey");
+  i.type = i.type==="password" ? "text" : "password";
+  $("toggleKey").textContent = i.type==="password" ? "Показати" : "Сховати";
+};
+
+$("apiKey").addEventListener("input", ()=>{
+  state.apiKey = $("apiKey").value.trim();
+  save();
+});
+
+$("codeMode").onchange = ()=>{
+  state.codeMode = $("codeMode").checked;
+  save();
+};
+
+// Init
+load();
+if(state.chats.length===0) newChat("Перший чат");
+$("apiKey").value = state.apiKey || "";
+$("codeMode").checked = !!state.codeMode;
+renderChats();
+renderMessages();
+updateTitle();
+</script>
+</body>
+</html>
