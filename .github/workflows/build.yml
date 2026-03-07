@@ -27,10 +27,19 @@ jobs:
       - name: Install SDK packages
         run: sdkmanager "platforms;android-33" "build-tools;33.0.2"
 
-      - name: Inject API key (optional)
-        if: ${{ secrets.DEEPSEEK_API_KEY != '' }}
+      - name: Create assets folder
+        run: mkdir -p app/src/main/assets
+
+      - name: Create placeholder API key file
         run: |
-          echo "${{ secrets.DEEPSEEK_API_KEY }}" > app/src/main/assets/api_key.txt
+          echo "# Place your DeepSeek API key here" > app/src/main/assets/api_key.txt
+          echo "# You can replace this file or set DEEPSEEK_API_KEY secret" >> app/src/main/assets/api_key.txt
+
+      - name: Inject API key from secrets (if available)
+        if: env.DEEPSEEK_API_KEY != ''
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: echo "$DEEPSEEK_API_KEY" > app/src/main/assets/api_key.txt
 
       - name: Create debug keystore
         run: |
@@ -41,7 +50,7 @@ jobs:
             -keyalg RSA -keysize 2048 -validity 10000
 
       - name: Build debug APK
-        run: gradle :app:assembleDebug
+        run: ./gradlew :app:assembleDebug
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
