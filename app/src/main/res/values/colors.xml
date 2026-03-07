@@ -1,0 +1,15 @@
+<resources>
+    <color name="primary">#0F4C5C</color>
+    <color name="primary_variant">#0B3944</color>
+    <color name="secondary">#C7B38C</color>
+    <color name="background">#F7F3EE</color>
+    <color name="surface">#FFFFFF</color>
+    <color name="on_primary">#FFFFFF</color>
+    <color name="on_secondary">#1E1E1E</color>
+    <color name="on_background">#1E1E1E</color>
+    <color name="on_surface">#1E1E1E</color>
+    <color name="bubble">#0F4C5C</color>
+    <color name="bubble_text">#FFFFFF</color>
+    <color name="assistant_bubble">#E8E0D5</color>
+    <color name="user_bubble">#0F4C5C</color>
+</resources>

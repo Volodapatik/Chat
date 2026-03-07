@@ -1,0 +1,50 @@
+name: Android Build
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Install SDK packages
+        run: sdkmanager "platforms;android-33" "build-tools;33.0.2"
+
+      - name: Inject API key (optional)
+        if: ${{ secrets.DEEPSEEK_API_KEY != '' }}
+        run: |
+          echo "${{ secrets.DEEPSEEK_API_KEY }}" > app/src/main/assets/api_key.txt
+
+      - name: Create debug keystore
+        run: |
+          mkdir -p ~/.android
+          keytool -genkeypair -v -keystore ~/.android/debug.keystore \
+            -storepass android -alias androiddebugkey -keypass android \
+            -dname "CN=Android Debug,O=Android,C=US" \
+            -keyalg RSA -keysize 2048 -validity 10000
+
+      - name: Build debug APK
+        run: gradle :app:assembleDebug
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: floating-deepseek-ai-debug
+          path: app/build/outputs/apk/debug/app-debug.apk

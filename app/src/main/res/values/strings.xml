@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">Floating DeepSeek AI Assistant</string>
+    <string name="enable_floating_ai">Enable Floating AI</string>
+    <string name="status_off">Status: Off</string>
+    <string name="status_on">Status: On</string>
+    <string name="send">Send</string>
+    <string name="message_hint">Type a message...</string>
+</resources>
